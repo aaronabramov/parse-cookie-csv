@@ -1,23 +1,17 @@
+#!/usr/local/share/npm/bin/coffee
 fs = require 'fs'
 csv = require 'csv'
 _ = require 'underscore'
 coffee = require 'coffee-script'
 through = require 'through'
 browserify = require 'browserify'
+{minify} = require 'uglify-js'
 
-# browserify.require './vendor/jquery.js'
 
+DUMP_FILE = './tmp/dump'
+REQUIRES_BLOCK = "$ = require('../vendor/jquery.js'); require('../vendor/jquery.cookie.js');"
 
-transform = (file) ->
-  data = ''
-  write =  (buf) -> data += buf
-  end = ->
-    @queue(coffee.compile(data))
-    @queue(null)
-  through(write, end)
-
-rowToJson = (headers, row) ->
-  _.object headers, row
+rowToJson = (headers, row) -> _.object headers, row
 
 jsonData = (csvData) ->
   csvData = _.clone(csvData)
@@ -28,7 +22,7 @@ createDump = (csvData) ->
   dump = jsonData(csvData).map (row) ->
     "$.cookie('#{row.Name}', '#{row.Value}', {domain: '#{row.Domain}', path: '#{row.Path}', secure: #{!!row.Secure}})"
 
-  "$.cookie.raw = true;" + dump.join(';') + ';'
+  REQUIRES_BLOCK + "$.cookie.raw = true;" + dump.join(';') + ';'
 
 # 'Name'
 # 'Value'
@@ -46,4 +40,13 @@ csv().from.string(input).to.array (data) ->
     process.stdout.write _.chain(jsonData(data)).pluck('Domain').uniq().value().join("\n") + "\n"
     process.exit(0)
 
-  fs.writeFileSync('./tmp/dump.js', createDump(data))
+  fs.writeFileSync(DUMP_FILE, createDump(data))
+  b = browserify()
+  b.add(DUMP_FILE)
+  s = b.bundle()
+  s.resume()
+  string = ''
+  s.on 'data', (data) -> string += data
+  s.on 'end', ->
+    process.stdout.write minify(string, fromString: true).code
+    process.exit(0)
