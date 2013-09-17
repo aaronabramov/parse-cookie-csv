@@ -7,6 +7,9 @@
   },
   "dependencies": {
     "csv": "*",
-    "underscore": "*"
+    "underscore": "*",
+    "browserify": "*",
+    "coffee-script": "*",
+    "through": "*"
   }
 }

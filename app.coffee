@@ -1,7 +1,20 @@
-fs = require "fs"
-csv = require "csv"
-_ = require "underscore"
+fs = require 'fs'
+csv = require 'csv'
+_ = require 'underscore'
+coffee = require 'coffee-script'
+through = require 'through'
+browserify = require 'browserify'
 
+# browserify.require './vendor/jquery.js'
+
+
+transform = (file) ->
+  data = ''
+  write =  (buf) -> data += buf
+  end = ->
+    @queue(coffee.compile(data))
+    @queue(null)
+  through(write, end)
 
 rowToJson = (headers, row) ->
   _.object headers, row
@@ -33,4 +46,4 @@ csv().from.string(input).to.array (data) ->
     process.stdout.write _.chain(jsonData(data)).pluck('Domain').uniq().value().join("\n") + "\n"
     process.exit(0)
 
-  process.stdout.write createDump(data)
+  fs.writeFileSync('./tmp/dump.js', createDump(data))
